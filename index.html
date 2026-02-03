@@ -1,3 +1,16 @@
+// SISTEM KUNCI SEDERHANA
+const PASSWORD_AKSES = "tes123"; // Ganti password sesuka Anda
+
+function cekAkses() {
+    let inputPass = prompt("Masukkan Password Akses:");
+    if (inputPass !== PASSWORD_AKSES) {
+        alert("Password Salah! Akses Ditolak.");
+        document.body.innerHTML = "<h1 style='text-align:center; margin-top:50px;'>Akses Dilarang</h1>";
+    }
+}
+
+// Jalankan pengecekan saat halaman dibuka
+cekAkses();
 <!DOCTYPE html>
 <html lang="id">
 <head>
@@ -152,3 +165,4 @@ const analytics = getAnalytics(app);
 </script>
 </body>
 </html>
+
