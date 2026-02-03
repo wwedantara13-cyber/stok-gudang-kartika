@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <title>Stok Gudang Online Real-Time</title>
+    <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
+    
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; padding: 20px; }
+        .box { max-width: 900px; margin: auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        .section { background: #eef2ff; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
+        .grid { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; }
+        .field { display: flex; flex-direction: column; gap: 5px; flex: 1; min-width: 150px; }
+        input, select, button { padding: 10px; border: 1px solid #ccc; border-radius: 6px; }
+        button { cursor: pointer; background: #2563eb; color: white; border: none; font-weight: bold; }
+        .btn-danger { background: #dc2626; font-size: 11px; padding: 5px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+        .status { color: #16a34a; font-size: 12px; font-weight: bold; margin-bottom: 15px; }
+    </style>
+</head>
+<body>
+
+<div class="box">
+    <h2>📦 Gudang Online Global</h2>
+    <div id="status" class="status">Menghubungkan ke server...</div>
+
+    <div class="section">
+        <div class="grid">
+            <div class="field">
+                <label>Tipe</label>
+                <select id="tipe" onchange="toggleInput()">
+                    <option value="MASUK">BARANG MASUK (+)</option>
+                    <option value="KELUAR">BARANG KELUAR (-)</option>
+                </select>
+            </div>
+            <div class="field" id="inNama">
+                <label>Nama Barang</label>
+                <input type="text" id="namaM" placeholder="Ketik nama...">
+            </div>
+            <div class="field" id="selNama" style="display:none">
+                <label>Pilih Barang</label>
+                <select id="namaK"></select>
+            </div>
+            <div class="field">
+                <label>Jumlah</label>
+                <input type="number" id="qty" placeholder="0">
+            </div>
+            <button onclick="simpan()">SIMPAN KE CLOUD</button>
+        </div>
+    </div>
+
+    <h3>📊 Sisa Stok (Real-Time)</h3>
+    <table id="tabelStok">
+        <thead><tr><th>Nama Barang</th><th>Masuk</th><th>Keluar</th><th>Sisa</th></tr></thead>
+        <tbody id="stokBody"></tbody>
+    </table>
+
+    <hr>
+    <h3>📜 Riwayat Transaksi</h3>
+    <table id="tabelRiwayat">
+        <thead><tr><th>Waktu</th><th>Barang</th><th>Tipe</th><th>Qty</th><th>Aksi</th></tr></thead>
+        <tbody id="riwayatBody"></tbody>
+    </table>
+</div>
+
+<script>
+    // GANTI INI DENGAN KODE FIREBASE MILIK ANDA (Langkah 3 nomor 4)
+    const firebaseConfig = {
+  apiKey: "AIzaSyBoW1iF2dAL8loIKRVHBDXlAf0pT0IuiX0",
+  authDomain: "stok-gudang-3df67.firebaseapp.com",
+  databaseURL: "https://stok-gudang-3df67-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "stok-gudang-3df67",
+  storageBucket: "stok-gudang-3df67.firebasestorage.app",
+  messagingSenderId: "954017163580",
+  appId: "1:954017163580:web:30d42880ec3861e1295639",
+  measurementId: "G-P5YPSM80CN"
+    };
+
+    // Hubungkan ke Firebase
+   const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);
+
+    // Mendengarkan perubahan data secara otomatis
+    database.on('value', (snapshot) => {
+        document.getElementById('status').innerText = "● Terhubung Secara Real-Time";
+        const rawData = snapshot.val();
+        const dataArray = rawData ? Object.keys(rawData).map(key => ({...rawData[key], id: key})) : [];
+        updateUI(dataArray.reverse());
+    });
+
+    function simpan() {
+        const tipe = document.getElementById('tipe').value;
+        const qty = parseInt(document.getElementById('qty').value);
+        let nama = (tipe === 'MASUK') ? document.getElementById('namaM').value.trim().toUpperCase() : document.getElementById('namaK').value;
+
+        if (!nama || !qty) return alert("Data tidak lengkap!");
+
+        // Perintah kirim data ke Cloud
+        database.push({
+            waktu: new Date().toLocaleString('id-ID'),
+            nama: nama,
+            tipe: tipe,
+            qty: qty
+        });
+
+        document.getElementById('qty').value = '';
+        document.getElementById('namaM').value = '';
+    }
+
+    function updateUI(data) {
+        const rBody = document.getElementById('riwayatBody');
+        const sBody = document.getElementById('stokBody');
+        const selK = document.getElementById('namaK');
+        rBody.innerHTML = ''; sBody.innerHTML = ''; selK.innerHTML = '';
+        
+        const stok = {};
+
+        data.forEach(item => {
+            // Isi Riwayat
+            rBody.innerHTML += `<tr>
+                <td>${item.waktu}</td>
+                <td>${item.nama}</td>
+                <td>${item.tipe}</td>
+                <td>${item.qty}</td>
+                <td><button class="btn-danger" onclick="hapusData('${item.id}')">Hapus</button></td>
+            </tr>`;
+
+            // Hitung Stok
+            if(!stok[item.nama]) stok[item.nama] = {m:0, k:0};
+            if(item.tipe === 'MASUK') stok[item.nama].m += item.qty;
+            else stok[item.nama].k += item.qty;
+        });
+
+        for(let n in stok) {
+            let sisa = stok[n].m - stok[n].k;
+            sBody.innerHTML += `<tr><td>${n}</td><td>${stok[n].m}</td><td>${stok[n].k}</td><td><b>${sisa}</b></td></tr>`;
+            if(sisa > 0) selK.innerHTML += `<option value="${n}">${n}</option>`;
+        }
+    }
+
+    function hapusData(id) {
+        if(confirm("Hapus dari cloud?")) firebase.database().ref('stok_gudang/' + id).remove();
+    }
+
+    function toggleInput() {
+        const tipe = document.getElementById('tipe').value;
+        document.getElementById('inNama').style.display = (tipe === 'MASUK') ? 'block' : 'none';
+        document.getElementById('selNama').style.display = (tipe === 'KELUAR') ? 'block' : 'none';
+    }
+</script>
+</body>
+</html>
